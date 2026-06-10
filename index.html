@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-<title>潮汕钓红点｜联机出牌修复版</title>
+<title>潮汕钓红点｜联机手机紧凑版</title>
 <style>
 :root{--panel:#fff8e8;--green:#08723e;--gold:#ffc85a;--red:#c83131;--text:#2b2520}
 *{box-sizing:border-box}
@@ -39,6 +39,135 @@ button:disabled{opacity:.45;cursor:not-allowed}
 .hide{display:none}
 .actionbar{position:sticky;bottom:0;background:rgba(5,61,39,.94);padding:12px;margin:20px -20px -20px;border-radius:0 0 22px 22px}
 .bigHint{font-weight:800;color:#5b3920}.drawInfo{font-weight:800;color:#7a4a00;background:#fff3d7;border-color:#e6a23c}.resultBox{background:linear-gradient(135deg,#fff0ba,#fff8e8);border:3px solid #ffc85a;border-radius:20px;padding:18px;margin:14px 0;box-shadow:0 8px 20px rgba(0,0,0,.12)}.winner{font-size:30px;font-weight:900;color:#b45f00;margin-bottom:10px}.rankRow{display:flex;justify-content:space-between;align-items:center;background:#fff;border-radius:14px;padding:12px 14px;margin:8px 0;border:1px solid #eadfca;font-size:18px}.rank1{border:3px solid #ffc85a;background:#fff9dc}.medal{font-size:24px;margin-right:8px}
+
+@media (max-width: 640px){
+  body{
+    padding-bottom: 94px;
+    overflow-x:hidden;
+  }
+  header{
+    padding: 12px 10px 6px;
+  }
+  h1{
+    font-size: 24px;
+  }
+  header p{
+    font-size: 13px;
+    margin-top: 4px;
+  }
+  .wrap{
+    width: 100%;
+    margin: 0 auto 20px;
+  }
+  .card{
+    margin: 8px 8px;
+    padding: 12px;
+    border-radius: 16px;
+  }
+  h2{
+    font-size: 22px;
+    margin: 8px 0 10px;
+  }
+  h3{
+    font-size: 20px;
+    margin: 12px 0 6px;
+  }
+  .pill{
+    font-size: 13px;
+    padding: 6px 9px;
+    margin: 3px;
+  }
+  .table{
+    padding: 8px 10px;
+    margin-top: 8px;
+    font-size: 15px;
+    line-height: 1.35;
+  }
+  #hint{
+    font-size: 15px;
+    line-height: 1.35;
+    max-height: 58px;
+    overflow:auto;
+  }
+  #pendingInfo{
+    font-size: 15px;
+    line-height: 1.35;
+    padding: 8px 10px;
+  }
+  .cards{
+    gap: 8px;
+    margin-top: 8px;
+  }
+  .poker{
+    width: 64px;
+    height: 86px;
+    border-radius: 11px;
+    font-size: 22px;
+    padding: 7px;
+  }
+  .poker div:last-child{
+    font-size: 26px !important;
+  }
+  .player{
+    font-size: 15px;
+    padding: 9px 10px;
+    margin: 6px 0;
+  }
+  .actionbar{
+    position: fixed;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    margin: 0;
+    border-radius: 18px 18px 0 0;
+    padding: 10px 10px calc(10px + env(safe-area-inset-bottom));
+    z-index: 9999;
+    justify-content: center;
+    box-shadow: 0 -8px 22px rgba(0,0,0,.24);
+  }
+  .actionbar button{
+    font-size: 16px;
+    padding: 11px 13px;
+    min-width: 78px;
+  }
+  .actionbar #restartBtn{
+    min-width: 82px;
+  }
+  input,button{
+    font-size: 16px;
+  }
+  .resultBox{
+    padding: 12px;
+    margin: 10px 0;
+  }
+  .winner{
+    font-size: 24px;
+  }
+  .rankRow{
+    font-size: 16px;
+    padding: 10px 11px;
+  }
+}
+
+@media (max-width: 390px){
+  .poker{
+    width: 58px;
+    height: 80px;
+    font-size: 20px;
+  }
+  .poker div:last-child{
+    font-size: 24px !important;
+  }
+  .cards{
+    gap: 7px;
+  }
+  .actionbar button{
+    font-size: 15px;
+    padding: 10px 10px;
+    min-width: 70px;
+  }
+}
+
 </style>
 </head>
 <body>
