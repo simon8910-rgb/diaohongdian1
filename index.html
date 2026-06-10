@@ -50,7 +50,7 @@ button:disabled{opacity:.45;cursor:not-allowed}
 <div class="wrap">
   <section id="entry" class="card">
     <h2>进入联机房间</h2>
-    <p class="muted">版本：playtest2。修复：钓走按钮、双方轮到自己时都有操作按钮。</p>
+    <p class="muted">版本：playtest3。修复：钓走按钮点击无反应问题。</p>
     <div class="row">
       <input id="nameInput" placeholder="你的名字，例如：爸爸/妈妈/小宝" />
       <button class="primary" id="createBtn">创建房间</button>
@@ -221,7 +221,7 @@ async function joinRoom(id){
 function enter(id){
   roomId=id;$("entry").classList.add("hide");$("roomPanel").classList.remove("hide");$("playersPanel").classList.remove("hide");
   $("roomIdText").textContent=roomId;
-  $("shareLink").textContent=`${location.origin}${location.pathname}?room=${roomId}&v=playtest2`;
+  $("shareLink").textContent=`${location.origin}${location.pathname}?room=${roomId}&v=playtest3`;
   onValue(ref(db,"rooms/"+roomId),snap=>{if(!snap.exists())return;currentRoom=snap.val();render()});
 }
 function cardEl(c,cls="",onclick=null){
@@ -326,70 +326,112 @@ function renderGame(room,game,ps,cur){
   $("cancelBtn").disabled=!(selectedHandIndex!=null || selectedTableIndex!=null);
 }
 async function catchSelected(){
-  const room=currentRoom, game=structuredClone(room.game), pid=playerId;
-  if(currentPlayer(room)!==pid || selectedTableIndex==null)return;
-  const phase=game.phase||"hand";
-  if(phase==="hand"){
-    if(selectedHandIndex==null)return;
-    const take=game.hands[pid][selectedHandIndex], table=game.tableCards[selectedTableIndex];
-    if(!take||!table||!canCatch(take,table))return;
-    game.hands[pid].splice(selectedHandIndex,1);
-    game.tableCards.splice(selectedTableIndex,1);
-    game.captured[pid]=(game.captured[pid]||[]).concat([take,table]);
-    selectedHandIndex=null; selectedTableIndex=null;
-    await addLog(`${playerNameById(pid)} 用 ${cardText(take)} 钓走 ${cardText(table)}，红牌 +${redScore(take)+redScore(table)}。`);
-    await afterHandResolved(game,room,pid);
-  }else if(phase==="draw"){
-    const take=game.pendingCard, table=game.tableCards[selectedTableIndex];
-    if(!take||!table||!canCatch(take,table))return;
-    game.pendingCard=null;
-    game.tableCards.splice(selectedTableIndex,1);
-    game.captured[pid]=(game.captured[pid]||[]).concat([take,table]);
-    selectedTableIndex=null;
-    await addLog(`${playerNameById(pid)} 摸到 ${cardText(take)}，钓走 ${cardText(table)}，红牌 +${redScore(take)+redScore(table)}。`);
-    finishTurn(game,room);
-    await saveGame(game,room);
+  try{
+    const room=currentRoom, game=JSON.parse(JSON.stringify(room.game)), pid=playerId;
+    if(currentPlayer(room)!==pid){ alert("现在不是你的回合"); return; }
+    if(selectedTableIndex===null || selectedTableIndex===undefined){ alert("请先点一张红框台面牌"); return; }
+
+    const phase=game.phase||"hand";
+    if(phase==="hand"){
+      if(selectedHandIndex===null || selectedHandIndex===undefined){ alert("请先点一张手牌"); return; }
+      const take=game.hands?.[pid]?.[selectedHandIndex];
+      const table=game.tableCards?.[selectedTableIndex];
+      if(!take || !table){ alert("选牌状态异常，请取消选择后重选"); return; }
+      if(!canCatch(take,table)){ alert(`${cardText(take)} 不能钓 ${cardText(table)}`); return; }
+
+      game.hands[pid].splice(selectedHandIndex,1);
+      game.tableCards.splice(selectedTableIndex,1);
+      game.captured[pid]=(game.captured[pid]||[]).concat([take,table]);
+      selectedHandIndex=null; selectedTableIndex=null;
+
+      await afterHandResolved(game,room,pid,`${playerNameById(pid)} 用 ${cardText(take)} 钓走 ${cardText(table)}，红牌 +${redScore(take)+redScore(table)}。`);
+      return;
+    }
+
+    if(phase==="draw"){
+      const take=game.pendingCard;
+      const table=game.tableCards?.[selectedTableIndex];
+      if(!take || !table){ alert("摸牌或台面牌状态异常"); return; }
+      if(!canCatch(take,table)){ alert(`${cardText(take)} 不能钓 ${cardText(table)}`); return; }
+
+      game.pendingCard=null;
+      game.tableCards.splice(selectedTableIndex,1);
+      game.captured[pid]=(game.captured[pid]||[]).concat([take,table]);
+      selectedTableIndex=null;
+
+      const msg=`${playerNameById(pid)} 摸到 ${cardText(take)}，钓走 ${cardText(table)}，红牌 +${redScore(take)+redScore(table)}。`;
+      finishTurn(game,room);
+      await saveGame(game,room,msg);
+      return;
+    }
+  }catch(e){
+    console.error(e);
+    alert("钓走失败：" + (e.message || e));
   }
 }
+
 async function putSelected(){
-  const room=currentRoom, game=structuredClone(room.game), pid=playerId;
-  if(currentPlayer(room)!==pid || game.phase!=="hand" || selectedHandIndex==null)return;
-  const card=game.hands[pid].splice(selectedHandIndex,1)[0];
-  game.tableCards.push(card);
-  selectedHandIndex=null; selectedTableIndex=null;
-  await addLog(`${playerNameById(pid)} 放下 ${cardText(card)} 到台面。`);
-  await afterHandResolved(game,room,pid);
+  try{
+    const room=currentRoom, game=JSON.parse(JSON.stringify(room.game)), pid=playerId;
+    if(currentPlayer(room)!==pid){ alert("现在不是你的回合"); return; }
+    if(game.phase!=="hand"){ alert("当前不是出手牌阶段"); return; }
+    if(selectedHandIndex===null || selectedHandIndex===undefined){ alert("请先点一张手牌"); return; }
+
+    const card=game.hands?.[pid]?.[selectedHandIndex];
+    if(!card){ alert("手牌状态异常，请取消选择后重选"); return; }
+
+    const can = (game.tableCards||[]).some(t=>canCatch(card,t));
+    if(can){ alert("这张牌可以钓，请选择红框台面牌后点“钓走”"); return; }
+
+    game.hands[pid].splice(selectedHandIndex,1);
+    game.tableCards.push(card);
+    selectedHandIndex=null; selectedTableIndex=null;
+
+    await afterHandResolved(game,room,pid,`${playerNameById(pid)} 放下 ${cardText(card)} 到台面。`);
+  }catch(e){
+    console.error(e);
+    alert("放到台面失败：" + (e.message || e));
+  }
 }
-async function afterHandResolved(game,room,pid){
+
+async function afterHandResolved(game,room,pid,firstMsg){
+  let extraMsg = "";
   if((game.deck||[]).length>0){
     const draw=game.deck.shift();
     const matches=game.tableCards.some(c=>canCatch(draw,c));
     if(matches){
-      game.pendingCard=draw; game.phase="draw";
-      await addLog(`${playerNameById(pid)} 摸了一张盖牌：${cardText(draw)}。`);
-      await saveGame(game,room);
+      game.pendingCard=draw; 
+      game.phase="draw";
+      extraMsg = `${playerNameById(pid)} 摸了一张盖牌：${cardText(draw)}。`;
+      await saveGame(game,room, firstMsg, extraMsg);
     }else{
       game.tableCards.push(draw);
-      await addLog(`${playerNameById(pid)} 摸到 ${cardText(draw)}，无法钓，自动放到台面。`);
+      extraMsg = `${playerNameById(pid)} 摸到 ${cardText(draw)}，无法钓，自动放到台面。`;
       finishTurn(game,room);
-      await saveGame(game,room);
+      await saveGame(game,room, firstMsg, extraMsg);
     }
   }else{
     finishTurn(game,room);
-    await saveGame(game,room);
+    await saveGame(game,room, firstMsg);
   }
 }
 function finishTurn(game,room){
-  game.phase="hand"; game.pendingCard=null;
-  selectedHandIndex=null; selectedTableIndex=null;
+  game.phase="hand"; 
+  game.pendingCard=null;
+  selectedHandIndex=null; 
+  selectedTableIndex=null;
   if(isGameOver(game)){
-    game.finished=true; room.status="finished";
+    game.finished=true; 
+    room.status="finished";
   }else{
     room.currentTurn=nextIndex(game,room);
   }
 }
-async function saveGame(game,room){
+async function saveGame(game,room,...msgs){
   await update(ref(db,`rooms/${roomId}`),{game,currentTurn:room.currentTurn,status:game.finished?"finished":"playing"});
+  for(const m of msgs.filter(Boolean)){
+    await addLog(m);
+  }
   if(game.finished) await addLog("游戏结束。");
 }
 async function startGame(){
