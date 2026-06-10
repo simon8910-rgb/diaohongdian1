@@ -50,7 +50,7 @@ button:disabled{opacity:.45;cursor:not-allowed}
 <div class="wrap">
   <section id="entry" class="card">
     <h2>进入联机房间</h2>
-    <p class="muted">版本：playtest3。修复：钓走按钮点击无反应问题。</p>
+    <p class="muted">版本：playtest4。修复：旧房间缺少 captured 导致钓走失败。</p>
     <div class="row">
       <input id="nameInput" placeholder="你的名字，例如：爸爸/妈妈/小宝" />
       <button class="primary" id="createBtn">创建房间</button>
@@ -193,6 +193,19 @@ function isGameOver(game){
   const empty=Object.values(game.hands||{}).every(h=>!h||h.length===0);
   return empty && (!game.deck||game.deck.length===0) && !game.pendingCard;
 }
+
+function ensureCaptured(game, room){
+  if(!game.captured) game.captured = {};
+  const ids = new Set([
+    ...Object.keys(game.hands || {}),
+    ...(room.playerOrder || []),
+    ...Object.keys(room.players || {})
+  ]);
+  ids.forEach(id=>{
+    if(!Array.isArray(game.captured[id])) game.captured[id] = [];
+  });
+  return game;
+}
 async function addLog(text){
   const snap=await get(ref(db,`rooms/${roomId}/logs`));
   const logs=snap.val()||[];
@@ -221,7 +234,7 @@ async function joinRoom(id){
 function enter(id){
   roomId=id;$("entry").classList.add("hide");$("roomPanel").classList.remove("hide");$("playersPanel").classList.remove("hide");
   $("roomIdText").textContent=roomId;
-  $("shareLink").textContent=`${location.origin}${location.pathname}?room=${roomId}&v=playtest3`;
+  $("shareLink").textContent=`${location.origin}${location.pathname}?room=${roomId}&v=playtest4`;
   onValue(ref(db,"rooms/"+roomId),snap=>{if(!snap.exists())return;currentRoom=snap.val();render()});
 }
 function cardEl(c,cls="",onclick=null){
@@ -292,17 +305,17 @@ function renderGame(room,game,ps,cur){
 
   const other=$("otherHands"); other.innerHTML="";
   ps.filter(p=>p.id!==playerId).forEach(p=>{
-    const cap=(game.captured?.[p.id]||[]).reduce((s,c)=>s+redScore(c),0);
+    const cap=((game.captured&&game.captured[p.id])||[]).reduce((s,c)=>s+redScore(c),0);
     const div=document.createElement("div");
     div.className="player "+(p.id===cur?"turn":"");
     div.innerHTML=`<span>${escapeHTML(p.name)} ${p.id===cur?"（当前）":""}</span><span>手牌 ${(game.hands?.[p.id]||[]).length} 张｜红牌 ${cap}分</span>`;
     other.appendChild(div);
   });
 
-  const myScore=(game.captured?.[playerId]||[]).reduce((s,c)=>s+redScore(c),0);
+  const myScore=((game.captured&&game.captured[playerId])||[]).reduce((s,c)=>s+redScore(c),0);
   let hint="";
   if(game.finished){
-    const scores=ps.map(p=>({name:p.name,score:(game.captured?.[p.id]||[]).reduce((s,c)=>s+redScore(c),0)})).sort((a,b)=>b.score-a.score);
+    const scores=ps.map(p=>({name:p.name,score:((game.captured&&game.captured[p.id])||[]).reduce((s,c)=>s+redScore(c),0)})).sort((a,b)=>b.score-a.score);
     hint="游戏结束｜"+scores.map(s=>`${s.name}：${s.score}分`).join("，");
   }else if(!myTurn){
     hint=`现在不是你的回合，请等待。你的红牌分：${myScore}`;
@@ -327,7 +340,7 @@ function renderGame(room,game,ps,cur){
 }
 async function catchSelected(){
   try{
-    const room=currentRoom, game=JSON.parse(JSON.stringify(room.game)), pid=playerId;
+    const room=currentRoom, game=ensureCaptured(JSON.parse(JSON.stringify(room.game)), currentRoom), pid=playerId;
     if(currentPlayer(room)!==pid){ alert("现在不是你的回合"); return; }
     if(selectedTableIndex===null || selectedTableIndex===undefined){ alert("请先点一张红框台面牌"); return; }
 
@@ -372,7 +385,7 @@ async function catchSelected(){
 
 async function putSelected(){
   try{
-    const room=currentRoom, game=JSON.parse(JSON.stringify(room.game)), pid=playerId;
+    const room=currentRoom, game=ensureCaptured(JSON.parse(JSON.stringify(room.game)), currentRoom), pid=playerId;
     if(currentPlayer(room)!==pid){ alert("现在不是你的回合"); return; }
     if(game.phase!=="hand"){ alert("当前不是出手牌阶段"); return; }
     if(selectedHandIndex===null || selectedHandIndex===undefined){ alert("请先点一张手牌"); return; }
