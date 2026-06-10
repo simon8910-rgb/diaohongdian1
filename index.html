@@ -38,7 +38,7 @@ button:disabled{opacity:.45;cursor:not-allowed}
 .log div{border-bottom:1px dashed #eee;padding:6px 0;color:#555}
 .hide{display:none}
 .actionbar{position:sticky;bottom:0;background:rgba(5,61,39,.94);padding:12px;margin:20px -20px -20px;border-radius:0 0 22px 22px}
-.bigHint{font-weight:800;color:#5b3920}.drawInfo{font-weight:800;color:#7a4a00;background:#fff3d7;border-color:#e6a23c}
+.bigHint{font-weight:800;color:#5b3920}.drawInfo{font-weight:800;color:#7a4a00;background:#fff3d7;border-color:#e6a23c}.resultBox{background:linear-gradient(135deg,#fff0ba,#fff8e8);border:3px solid #ffc85a;border-radius:20px;padding:18px;margin:14px 0;box-shadow:0 8px 20px rgba(0,0,0,.12)}.winner{font-size:30px;font-weight:900;color:#b45f00;margin-bottom:10px}.rankRow{display:flex;justify-content:space-between;align-items:center;background:#fff;border-radius:14px;padding:12px 14px;margin:8px 0;border:1px solid #eadfca;font-size:18px}.rank1{border:3px solid #ffc85a;background:#fff9dc}.medal{font-size:24px;margin-right:8px}
 </style>
 </head>
 <body>
@@ -92,6 +92,8 @@ button:disabled{opacity:.45;cursor:not-allowed}
     </div>
 
     <div id="hint" class="table bigHint"></div>
+
+    <div id="resultPanel" class="resultBox hide"></div>
 
     <h3>台面牌</h3>
     <div id="tableCards" class="cards"></div>
@@ -275,7 +277,38 @@ function render(){
   const logs=room.logs||[];$("logs").innerHTML="";
   [...logs].reverse().slice(0,50).forEach(t=>{const d=document.createElement("div");d.textContent=t;$("logs").appendChild(d)});
 }
+
+function getScores(ps, game){
+  return ps.map(p=>({
+    id:p.id,
+    name:p.name,
+    score:((game.captured&&game.captured[p.id])||[]).reduce((s,c)=>s+redScore(c),0)
+  })).sort((a,b)=>b.score-a.score);
+}
+function renderResultPanel(ps, game){
+  const panel=$("resultPanel");
+  if(!game.finished){
+    panel.classList.add("hide");
+    panel.innerHTML="";
+    return;
+  }
+  const scores=getScores(ps, game);
+  const top=scores[0]?.score ?? 0;
+  const winners=scores.filter(s=>s.score===top);
+  const title=winners.length>1
+    ? `🏆 并列第一：${winners.map(w=>escapeHTML(w.name)).join("、")}`
+    : `🏆 冠军：${escapeHTML(winners[0]?.name || "")}`;
+  const rows=scores.map((s,i)=>{
+    const medal=i===0?"🥇":i===1?"🥈":i===2?"🥉":"";
+    const cls=i===0?"rankRow rank1":"rankRow";
+    return `<div class="${cls}"><span><span class="medal">${medal}</span>${i+1}. ${escapeHTML(s.name)}</span><b>${s.score} 分</b></div>`;
+  }).join("");
+  panel.classList.remove("hide");
+  panel.innerHTML=`<div class="winner">${title}</div><div class="muted">红牌分高者赢</div>${rows}`;
+}
+
 function renderGame(room,game,ps,cur){
+  renderResultPanel(ps, game);
   const myTurn=cur===playerId && !game.finished;
   const myHand=game.hands?.[playerId]||[];
   const selectedHand=selectedHandIndex!=null?myHand[selectedHandIndex]:null;
@@ -329,8 +362,7 @@ function renderGame(room,game,ps,cur){
   const myScore=(game.captured?.[playerId]||[]).reduce((s,c)=>s+redScore(c),0);
   let hint="";
   if(game.finished){
-    const scores=ps.map(p=>({name:p.name,score:(game.captured?.[p.id]||[]).reduce((s,c)=>s+redScore(c),0)})).sort((a,b)=>b.score-a.score);
-    hint="游戏结束｜"+scores.map(s=>`${s.name}：${s.score}分`).join("，");
+    hint="游戏结束，查看上方结算结果。";
   }else if(!myTurn){
     hint=`现在不是你的回合，请等待。你的红牌分：${myScore}`;
   }else if(phase==="hand"){
